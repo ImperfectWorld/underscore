@@ -454,6 +454,55 @@
         return pairs;
     };
 
+    // 将一个对象的 key-value 键值对颠倒
+    // 即原来的 key 为 value 值，原来的 value 值为 key 值
+    // 需要注意的是，value 值不能重复（不然后面的会覆盖前面的）
+    // 且新构造的对象符合对象构造规则
+    // 并且返回新构造的对象
+    _.invert = function (obj) {
+        //返回新的对象
+        var result = {};
+        var keys = _.keys(obj);
+        for (var i = 0, length = keys.length; i < length; i++) {
+            result[obj[keys[i]]] = keys[i];
+        }
+        return result;
+    };
+    // created object.
+    // 给定 prototype
+    // 以及一些 own properties
+    // 构造一个新的对象并返回
+    _.create = function (prototype, props) {
+        var result = baseCreate(prototype);
+
+        //将props的键值对覆盖result对象
+        if (props) _.extendOwn(result, props);
+        return result;
+    };
+
+    // 传入一个对象
+    // 遍历该对象的键值对（包括 own properties 以及 原型链上的）
+    // 如果某个 value 的类型是方法（function），则将该 key 存入数组
+    // 将该数组排序后返回
+    _.functions = _.methods = function (obj) {
+        // 返回的数组
+        var names = [];
+
+        // if IE < 9
+        // 且对象重写了 `nonEnumerableProps` 数组中的某些方法
+        // 那么这些方法名是不会被返回的
+        // 可见放弃了 IE < 9 可能对 `toString` 等方法的重写支持
+        for (var key in obj) {
+            // 如果某个key对应的value值类型是函数
+            // 则将这个key值存入数组
+            if (_.isFunction(obj[key])) names.push(key);
+        }
+
+        //返回排序后的数组
+        return names.sort();
+    };
+
+
     // 跟数组方法的 _.findIndex 类似
     // 找到对象的键值对中第一个满足条件的键值对
     // 并返回该键值对 key 值
@@ -465,6 +514,94 @@
             if (predicate(obj[key], key, obj)) return key;
         }
     };
+
+    // 将几个对象上（第二个参数开始，根据参数而定）的所有键值对添加到 destination 对象（第一个参数）上
+    // 因为 key 值可能会相同，所以后面的（键值对）可能会覆盖前面的
+    // 参数个数 >= 1
+    _.extend = createAssigner(_.allKeys);
+
+    // Assigns a given object with all the own properties in the passed-in object(s)
+    // (https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object/assign)
+    // 跟 extend 方法类似，但是只把 own properties 拷贝给第一个参数对象
+    // 只继承 own properties 的键值对
+    // 参数个数 >= 1
+    _.extendOwn = _.assign = createAssigner(_.keys);
+
+
+    // 根据一定的需求（key 值，或者通过 predicate 函数返回真假）
+    // 返回拥有一定键值对的对象副本
+    // 第二个参数可以是一个 predicate 函数
+    // 也可以是 >= 0 个 key
+    // _.pick(object, *keys)
+    // Return a copy of the object
+    // filtered to only have values for the whitelisted keys (or array of valid keys)
+    // Alternatively accepts a predicate indicating which keys to pick.
+    /*
+     _.pick({name: 'moe', age: 50, userid: 'moe1'}, 'name', 'age');
+     => {name: 'moe', age: 50}
+     _.pick({name: 'moe', age: 50, userid: 'moe1'}, ['name', 'age']);
+     => {name: 'moe', age: 50}
+     _.pick({name: 'moe', age: 50, userid: 'moe1'}, function(value, key, object) {
+     return _.isNumber(value);
+     });
+     => {age: 50}
+     */
+    _.pick = function (object, oiteratee, context) {
+        var result = {}, obj = object, iteratee, keys;
+
+        //容错
+        if (obj == null) return result;
+
+        //如果第二个参数是函数
+        if (_.isFunction(oiteratee)) {
+            keys = _.allKeys(obj);
+            iteratee = optimizeCb(oiteratee, context);
+        } else {
+            // 如果第二个参数不是函数
+            // 则后面的 keys 可能是数组
+            // 也可能是连续的几个并列的参数
+            // 用 flatten 将它们展开
+            keys = flatten(arguments, false, false, 1);
+
+            //也转为predicate函数判断形式
+            //将指定key 转化为predicate函数
+            iteratee = function (value, key, obj) {
+                return key in obj;
+            };
+            obj = Object[obj];
+        }
+
+        for (var i = 0, length = keys.length; i < length; i++) {
+            var key = keys[i];
+            var value = obj[key];
+            if (iteratee(value, key, obj)) result[key] = value;
+        }
+        return result;
+    };
+
+    // 跟 _.pick 方法相对
+    // 返回 _.pick 的补集
+    // 即返回没有指定 keys 值的对象副本
+    // 或者返回不能通过 predicate 函数的对象副本
+    _.omit = function (obj, iteratee, context) {
+        if (_.isFunction(iteratee)) {
+            iteratee = _.negate(iteratee);
+        } else {
+            var keys = _.map(flatten(arguments, false, false, 1), String);
+            iteratee = function (value, key) {
+                return !_.contains(keys, key);
+            };
+        }
+        return _.pick(obj, iteratee, context);
+    };
+
+    // 和 _.extend 非常类似
+    // 区别是如果 *defaults 中出现了和 object 中一样的键
+    // 则不覆盖 object 的键值对
+    // 如果 *defaults 多个参数对象中有相同 key 的对象
+    // 则取最早出现的 value 值
+    // 参数个数 >= 1
+    _.defaults = createAssigner(_.allkeys, true);
 
     _.has = function(obj, key) {
         return obj != null && hasOwnProperty.call(obj, key);
