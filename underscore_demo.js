@@ -603,8 +603,39 @@
     // 参数个数 >= 1
     _.defaults = createAssigner(_.allkeys, true);
 
+    // 对象的 `浅复制` 副本
+    // 注意点：所有嵌套的对象或者数组都会跟原对象用同一个引用
+    // 所以是为浅复制，而不是深度克隆
+    _.clone = function (object) {
+        // 容错 如果不是对象或者数组类型，则可以直接返回
+        // 因为一些基础类型是直接按值传递的
+        // 思考 arguments ？ Nodelists ？
+        if (!_.isObject(obj)) return obj;
+
+        // 如果是数组，则用 obj.slice()返回数组副本
+        // 如果是对象，则提取所有 obj 的键值对覆盖空对象，返回
+        return _.isArray(obj) ? obj.slice() : _.extend({}, obj);
+    };
+    // 主要是用在链式调用中
+    // 对中间值立即进行处理
+    _.tap = function (obj, interceptor) {
+        interceptor(obj);
+        return obj;
+    };
+
+    // 判断对象中是否有指定 key
+    // 等同于object.hasOwnProperty(key)
     _.has = function(obj, key) {
         return obj != null && hasOwnProperty.call(obj, key);
+    };
+    
+    //判断一个给定的对象是否有某些键值对
+    _.matcher = _.matches = function (attrs) {
+        attrs = _.extendOwn({}, attrs);
+
+        return function (obj) {
+            return _.isMatch(obj, attrs);
+        };
     };
 
     _.identity = function(value) {
@@ -617,6 +648,23 @@
             return _.isMatch(obj, attrs);
         };
     };
+
+    _.property = property;
+    
+    _.propertyOf = function (obj) {
+        return obj == null ? function () {} : function (key) {
+            return obj[key];
+        }
+    };
+
+    // 判断两个对象是否一样
+    // new Boolean(true)，true 被认为 equal
+    // [1, 2, 3], [1, 2, 3] 被认为 equal
+    // 0 和 -0 被认为 unequal
+    // NaN 和 NaN 被认为 equal
+    _.isEqual = function (a, b) {
+        return eq(a, b);
+    }
 
 
 
