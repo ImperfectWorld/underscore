@@ -22,7 +22,11 @@
 
 	var Ctor = function(){};
 
-	var _ = function(obj) {
+    // 核心函数
+    // `_` 其实是一个构造函数
+    // 支持无 new 调用的构造函数（思考 jQuery 的无 new 调用）
+    // 将传入的参数（实际要操作的数据）赋值给 this._wrapped 属性
+    var _ = function(obj) {
 		if (obj instanceof _) return obj;
 		if (!(this instanceof _)) return new_(obj);
 		this._wrapped = obj;
@@ -323,32 +327,6 @@
         };
     };
 
-
-
-	_.isEmpty = function(obj) {
-		if (obj == null) return true;
-		if (isArrayLike(obj) && (_.isArray(obj) || _.isString(obj) || _.isArguments(obj))) return obj.length === 0;
-		return _.keys(obj).length === 0;
-	};
-
-	_.isElement = function(obj) {
-		return !!(obj && obj.nodeType === 1);
-	};
-
-	_.isArray = nativeIsArray || function(obj) {
-		return toString.call(obj) === '[Object Array]';
-	};
-
-	_.isObject = function(obj) {
-		var type = typeof obj;
-		return type === 'function' || type === 'object' && !!obj;
-	};
-
-	_.each(['Arguments', 'Function', 'String', 'Number', 'Date', 'RegExp', 'Error'], function(name) {
-		_['is' + name] = function(obj) {
-			return toString.call(obj) === '[object' + name + ']';
-		};
-	});
 
 
     //对象函数（Object Functions）
@@ -664,6 +642,355 @@
     // NaN 和 NaN 被认为 equal
     _.isEqual = function (a, b) {
         return eq(a, b);
+    };
+
+    _.isEmpty = function(obj) {
+        if (obj == null) return true;
+        if (isArrayLike(obj) && (_.isArray(obj) || _.isString(obj) || _.isArguments(obj))) return obj.length === 0;
+        return _.keys(obj).length === 0;
+    };
+
+    // attrs 参数为一个对象
+    // 判断 object 对象中是否有 attrs 中的所有 key-value 键值对
+    // 返回布尔值
+    _.isMatch = function (object, attrs) {
+       // 提取attrs对象的所有keys
+        var keys = _.keys(attrs), length = keys.length;
+
+        // 如果object为空
+        // 根据 attrs 的键值对数量返回布尔值
+        if (object == null) return !length;
+
+        var obj = Object(object);
+
+        for (var i = 0; i < length; i++) {
+            var key = keys[i];
+
+            // 如果 obj 对象没有 attrs 对象的某个 key
+            // 或者对于某个 key，它们的 value 值不同
+            // 则证明 object 并不拥有 attrs 的所有键值对
+            // 则返回 false
+            if (attrs[key] != obj[key] || !(key in obj)) return false;
+        }
+        return true;
+    };
+
+    // 判断是否为 DOM 元素
+    _.isElement = function (obj) {
+        // 确保 obj 不是 null, undefined 等假值
+        // 并且 obj.nodeType === 1
+        return !!(obj && obj.nodeType === 1);
+    };
+    
+    // 判断是否是数组
+    _.isArray = nativeIsArray || function (obj) {
+        return toString.call(obj) === '[object Array]';
+    };
+
+
+   // 判断是否是对象
+   // JavaScript数组和函数是对象，字符串和数字不是
+    _.isObject = function (obj) {
+        var type = typeof obj;
+        return type === 'function' || type === 'object' && !!obj;
+    };
+
+
+    _.each(['Arguments', 'Function', 'String', 'Number', 'Date', 'RegExp', 'Error'], function(name) {
+        _['is' + name] = function(obj) {
+            return toString.call(obj) === '[object' + name + ']';
+        };
+    });
+
+    // _.isArguments 方法在 IE < 9 下的兼容
+    // IE < 9 下对 arguments 调用 Object.prototype.toString.call 方法
+    // 结果是 => [object Object]
+    // 而并非我们期望的 [object Arguments]。
+    // so 用是否含有 callee 属性来做兼容
+    if (!_.isArguments(arguments)) {
+        _.isArguments = function (obj) {
+            return _.has(obj, 'callee');
+        };
+    }
+
+    // _.isFunction 在 old v8, IE 11 和 Safari 8 下的兼容
+    // 这个我不懂！！！！
+    // 我用的 chrome 49 (显然不是 old v8)
+    // 却也进入了这个 if 判断内部
+    if (typeof /./ != 'function' && typeof Int8Array != 'object') {
+        _.isFunction = function (obj) {
+            return typeof obj == 'function' || false;
+        };
+    }
+
+
+    // 如果obj是一个有限数字，返回true；
+    _.isFinite = function (obj) {
+        return isFinite(obj) && !isNaN(parseFloat(obj));
+    };
+
+    /*   传送门 isFinite(testValue)
+     isFinite(Infinity);  // false
+     isFinite(NaN);       // false
+     isFinite(-Infinity); // false
+
+     isFinite(0);         // true
+     isFinite(2e64);      // true
+     isFinite(null);      // true
+
+
+     isFinite("0");       // true, would've been false with the
+     // more robust Number.isFinite("0")
+     */
+
+    // 判断是否是布尔值
+    // 基础类型（true、 false）
+    // 以及 new Boolean() 两个方向判断
+    // 有点多余了吧？
+    // 个人觉得直接用 toString.call(obj) 来判断就可以了
+    _.isBoolean = function (obj) {
+        return obj === true || obj === false || toString.call(obj) === '[object Boolean]';
+    };
+
+    // 判断是否是 NaN
+    // NaN 是唯一的一个 `自己不等于自己` 的 number 类型
+    // 这样写有 BUG
+    // _.isNaN(new Number(0)) => true
+    // 详见 https://github.com/hanzichi/underscore-analysis/issues/13
+    // 最新版本（edge 版）已经修复该 BUG
+    _.isNaN = function (obj) {
+        return _.isNumber(obj) && obj !== +obj;
+    };
+
+    // 判断是否是 null
+    _.isNull = function (obj) {
+        return obj === null;
+    };
+
+    // 判断是否是 undefined
+    // undefined 能被改写 （IE < 9）
+    // undefined 只是全局对象的一个属性
+    // 在局部环境能被重新定义
+    // 但是 void 0 始终是 undefined
+    _.isUndefined = function (value) {
+        return obj === void 0;
+    };
+
+
+
+
+    // Array Functions
+    // 数组的扩展方法
+    // 共 20 个扩展方法
+    // Note: All array functions will also work on the arguments object.
+    // However, Underscore functions are not designed to work on "sparse" arrays.
+    // ---------------
+
+    // 返回数组第一个元素
+    // 如果有参数 n，则返回数组前 n 个元素（组成的数组）
+    _.first = _.head = _.take = function (array, n, guard) {
+        // 容错，数组为空则返回 undefined
+        if (array == null) return void 0;
+
+        // 没有指定参数n，则返回第一个元素
+        if (n == null || guard) return array[0];
+
+        // 如果传入参数 n ，则返回前n个元素组成的数组
+        // 返回前n个元素，即剔除后array.length - n 个元素
+        return _.initial(array, array.length - n);
+    };
+
+    // 传入一个数组
+    // 返回剔除最后一个元素之后的数组副本
+    // 如果传入参数 n，则剔除最后 n 个元素
+    _.initial = function (array, n, guard) {
+        return slice.call(array, 0, Math.max(0, array.length - (n == null || guard ? 1 : n)));
+    };
+
+    // 返回数组最后一个元素
+    // 如果传入参数 n
+    // 则返回该数组后 n 个元素组成的数组
+    // 即剔除前 array.length - n 个元素
+    _.last = function (array, n, guard) {
+        //容错
+        if (array == null) return void 0;
+
+        // 如果没有指定参数N，则返回最后一个元素
+        if (n == null) return array[array.length - 1];
+
+        // 如果传入参数N，则返回后n个元素组成的数组
+        // 既剔除前array.length - n 个元素
+        return _.rest(array, Math.max(0, array.length - n));
+    };
+
+    // 传入一个数组
+    // 返回剔除第一个元素后的数组副本
+    // 如果传入参数 n，则剔除前 n 个元素
+    _.rest = _.tail = _.drop = function (array, n,guard) {
+        return slice.call(array, n == null || guard ? 1 : n);
+    };
+
+    // 去掉数组中所有的假值
+    // 返回数组副本
+    // JavaScript 中的假值包括 false、null、undefined、''、NaN、0
+    // 联想 PHP 中的 array_filter() 函数
+    // _.identity = function(value) {
+    //   return value;
+    // };
+    _.compact = function (array) {
+        return _.filter(array, _.identity);
+    };
+
+    // 递归调用数组，将数组展开
+    // 即 [1, 2, [3, 4]] => [1, 2, 3, 4]
+    // flatten(array, shallow, false)
+    // flatten(arguments, true, true, 1)
+    // flatten(arguments, true, true)
+    // flatten(arguments, false, false, 1)
+    // ===== //
+    // input => Array 或者 arguments
+    // shallow => 是否只展开一层
+    // strict === true，通常和 shallow === true 配合使用
+    // 表示只展开一层，但是不保存非数组元素（即无法展开的基础类型）
+    // flatten([[1, 2], 3, 4], true, true) => [1, 2]
+    // flatten([[1, 2], 3, 4], false, true) = > []
+    // startIndex => 从 input 的第几项开始展开
+    // ===== //
+    // 可以看到，如果 strict 参数为 true，那么 shallow 也为 true
+    // 也就是展开一层，同时把非数组过滤
+    // [[1, 2], [3, 4], 5, 6] => [1, 2, 3, 4]
+    var flatten = function (input, shallow, strict, startIndex) {
+        // output 数组保存结果
+        // 即 flatten 方法返回数据
+        // idx 为 output 的累计数组下标
+        var output = [], idx = 0;
+
+        // 根据startIndex 变量确定需要展开的起始位置
+        for (var i = startIndex || 0, length = getLength(input); i < length; i++) {
+            var value = input[i];
+
+            if (isArrayLike(value) && _.isArray(value) || _.isArguments(value)) {
+                // (!shallow === true) => (shallow === false)
+                // 则表示需深度展开
+                // 继续递归展开
+                if (!shallow)
+                    value = flatten(value, shallow, strict);
+
+                // 递归展开到最后一层（没有嵌套的数组了）
+                // 或者（shallow === true） =>只展开一层
+                // value 值肯定是一个数组
+                var j = 0, len = value.length;
+                output.length += len;
+
+                // 将value数组中的元素添加到output数组中
+                while (j < len) {
+                    output[idx++] = value[j++];
+                }
+            } else if (!strict) {
+                // (!strict === true) => (strict === false)
+                // 如果是深度展开，即 shallow 参数为 false
+                // 那么当最后 value 不是数组，是基本类型时
+                // 肯定会走到这个 else-if 判断中
+                // 而如果此时 strict 为 true，则不能跳到这个分支内部
+                // 所以 shallow === false 如果和 strict === true 搭配
+                // 调用 flatten 方法得到的结果永远是空数组 []
+                output[idx++] = value;
+            }
+        }
+
+        return output;
+    };
+
+    // 将嵌套的数组展开
+    // 如果参数 (shallow === true)，则仅展开一层
+    // _.flatten([1, [2], [3, [[4]]]]);
+    // => [1, 2, 3, 4];
+    // ====== //
+    // _.flatten([1, [2], [3, [[4]]]], true);
+    // => [1, 2, 3, [[4]]];
+    _.flatten = function (array, shallow) {
+        // array => 需要展开的数组
+        // shallow => 是否只展开一层
+        // false 为 flatten 方法 strict 变量
+        return flatten(array, shallow, false);
+    };
+
+    // _.without([1, 2, 1, 0, 3, 1, 4], 0, 1);
+    // => [2, 3, 4]
+    // ===== //
+    // 从数组中移除指定的元素
+    // 返回移除后的数组副本
+    _.without = function (array) {
+        return _.difference(array, slice.call(arguments, 1));
+    };
+
+
+
+
+
+    // Function (ahem) Functions
+    // 函数的扩展方法
+    // 共 14 个扩展方法
+    // ------------------
+
+    var executeBound = function(sourceFunc, boundFunc, context, callingContext, args) {
+        // 非 new 调用 _.bind 返回的方法（即 bound）
+        // callingContext 不是 boundFunc 的一个实例
+        if (!(callingContext instanceof boundFunc))
+            return sourceFunc.apply(context, args);
+
+        // 如果是用 new 调用 _.bind 返回的方法
+
+        // self 为 sourceFunc 的实例，继承了它的原型链
+        // self 理论上是一个空对象（还没赋值），但是有原型链
+        var self = baseCreate(sourceFunc.prototype);
+
+        // 用 new 生成一个构造函数的实例
+        // 正常情况下是没有返回值的，即 result 值为 undefined
+        // 如果构造函数有返回值
+        // 如果返回值是对象（非 null），则 new 的结果返回这个对象
+        // 否则返回实例
+        // @see http://www.cnblogs.com/zichi/p/4392944.html
+        var result = sourceFunc.apply(self, args);
+
+        // 如果构造函数返回了对象
+        // 则 new 的结果是这个对象
+        // 返回这个对象
+        if (_.isObject(result)) return result;
+
+        // 否则返回 self
+        // var result = sourceFunc.apply(self, args);
+        // self 对象当做参数传入
+        // 会直接改变值
+        return self;
+    };
+
+
+
+    // ES5 bind 方法的扩展（polyfill）
+    // 将 func 中的 this 指向 context（对象）
+    // _.bind(function, object, *arguments)
+    // 可选的 arguments 参数会被当作 func 的参数传入
+    // func 在调用时，会优先用 arguments 参数，然后使用 _.bind 返回方法所传入的参数
+    _.bind = function (func, conotext) {
+        // 如果浏览器支持 ES5 bind 方法，并且 func 上的 bind 方法没有被重写
+        // 则优先使用原生的 bind 方法
+        if (nativeBind && func.bind === nativeBind)
+            return nativeBind.apply(func, slice.call(arguments, 1));
+
+        // 如果传入的参数func不是方法，则抛出错误
+        if (!_.isFunction(func))
+            throw new TypeError('Bind must be called on a function');
+
+        // polyfill
+        // 经典闭包，函数返回函数
+        // args 获取优先使用的参数
+        var args = slice.call(arguments, 2);
+        var bound = function () {
+            return executeBound(func, bound, context, this, args.concat(slice.call(arguments)));
+        };
+
+        return bound;
     }
 
 
@@ -671,7 +998,59 @@
 
 
 
+    // "内部的"/ "递归地"/ "比较"
+    // 该内部方法会被递归调用
+    var eq = function (a, b, aStack, bStack) {
+        // a === b 时
+        // 需要注意 `0 === -0` 这个 special case
+        // 0 和 -0 被认为不相同（unequal）
+        if (a === b) return a !== 0 || 1 / a === 1 / b;
 
+        // 如果 a 和 b 有一个为 null（或者 undefined）
+        // 判断 a === b
+        if (a == null || b == null) return a === b;
+
+        // 如果 a 和 b 是 underscore OOP 的对象
+        // 那么比较 _wrapped 属性值（Unwrap）
+        if (a instanceof _) a = a._wrapped;
+        if (b instanceof _) b = b._wrapped;
+
+        // Compare `[[Class]]` names.
+        // 用 Object.prototype.toString.call 方法获取 a 变量类型
+        var className = toString.call(a);
+
+        // 如果 a 和 b 类型不相同，则返回 false
+        // 类型都不同了还比较个蛋！
+        if (className !== toString.call(b)) return false;
+
+        switch (className) {
+            // Strings, numbers, regular expressions, dates, and booleans are compared by value.
+            // 以上五种类型的元素可以直接根据其 value 值来比较是否相等
+            case '[object RegExp]':
+            case '[object String]':
+                // 转为String类型进行比较
+                return '' + a === '' + b;
+
+            // RegExp 和 String 可以看做一类
+            // 如果 obj 为 RegExp 或者 String 类型
+            // 那么 '' + obj 会将 obj 强制转为 String
+            // 根据 '' + a === '' + b 即可判断 a 和 b 是否相等
+            // ================
+
+            case '[object Date]':
+            case '[object Boolean]':
+                return +a === +b;
+
+            // Date 和 Boolean 可以看做一类
+            // 如果 obj 为 Date 或者 Boolean
+            // 那么 +obj 会将 obj 转为 Number 类型
+            // 然后比较即可
+            // +new Date() 是当前时间距离 1970 年 1 月 1 日 0 点的毫秒数
+            // +true => 1
+            // +new Boolean(false) => 0
+        }
+
+    }
 
 
 
