@@ -924,6 +924,158 @@
         return _.difference(array, slice.call(arguments, 1));
     };
 
+    // 数组去重
+    // 如果第二个参数 `isSorted` 为 true
+    // 则说明事先已经知道数组有序
+    // 程序会跑一个更快的算法（一次线性比较，元素和数组前一个元素比较即可）
+    // 如果有第三个参数 iteratee，则对数组每个元素迭代
+    // 对迭代之后的结果进行去重
+    // 返回去重后的数组（array 的子数组）
+    // PS: 暴露的 API 中没 context 参数
+    // _.uniq(array, [isSorted], [iteratee])
+    _.uniq = _.unique = function (array, isSorted, iteratee, context) {
+        // 没有传入 isSorted 参数
+        // 转为 _.unique(array, false, undefined, iteratee)
+        if (!_.isBoolean(isSorted)) {
+            context = iteratee;
+            iteratee = isSorted;
+            isSorted = false;
+        }
+
+        // 如果有迭代函数
+        // 则根据this指向二次返回新的迭代函数
+        if (iteratee != null) iteratee = cb(iteratee, context);
+
+        // 结果数组，是array的子集
+        var result = [];
+
+        // 已经出现过的元素（或者经过迭代过的值）
+        // 用来过滤重复值
+        var seen = [];
+
+        for (var i = 0, length = getLength(array); i < length; i++) {
+            var value = array[i];
+            // 如果指定了迭代函数
+            // 则对数组每一个元素进行迭代
+            // 迭代函数传入的三个参数通常是 value, index, array 形式
+            // computed 保存当前元素
+            computed = iteratee ? iteratee(value, i, array) : value;
+
+            // 如果是有序数组，则当前元素只需跟上一个元素对比即可
+            // 用 seen 变量保存上一个元素
+            if (isSorted) {
+                // 如果 i === 0，是第一个元素，则直接 push
+                // 否则比较当前元素是否和前一个元素相等
+                if (!i || seen !== computed) result.push(value);
+                // seen 保存当前元素，供下一次对比
+                seen = computed;
+            }else if (iteratee) {
+                // 如果 seen[] 中没有 computed 这个元素值
+                if (!_.contains(seen, computed)) {
+                    seen.push(computed);
+                    result.push(value);
+                }
+            } else if (!_.contains(result, value)) {
+                // 如果不用经过迭代函数计算，也就不用 seen[] 变量了
+                result.push(value);
+            }
+        }
+
+        return result;
+    };
+
+    // _.union([1, 2, 3], [101, 2, 1, 10], [2, 1]);
+    // => [1, 2, 3, 101, 10]
+    // ========== //
+    // 将多个数组的元素集中到一个数组中
+    // 并且去重，返回数组副本
+    _.union = function () {
+        // 首先用 flatten 方法将传入的数组展开成一个数组
+        // 然后就可以愉快地调用 _.uniq 方法了
+        // 假设 _.union([1, 2, 3], [101, 2, 1, 10], [2, 1]);
+        // arguments 为 [[1, 2, 3], [101, 2, 1, 10], [2, 1]]
+        // shallow 参数为 true，展开一层
+        // 结果为 [1, 2, 3, 101, 2, 1, 10, 2, 1]
+        // 然后对其去重
+        return _.uniq(flatten(arguments, true, true));
+    };
+
+    // 寻找几个数组中共有的元素
+    // 将这些每个数组中都有的元素存入另一个数组中返回
+    // _.intersection(*arrays)
+    // _.intersection([1, 2, 3, 1], [101, 2, 1, 10, 1], [2, 1, 1])
+    // => [1, 2]
+    // 注意：返回的结果数组是去重的
+    // ----> 首先判断元素是否在结果数组中，有的话直接跳过，没有则进入下一步
+    // ----> 再判断元素是否都在其他的数组中，如果发现有的数组中没有，则直接跳出for语句
+    // ----> 遍历完成后都没有跳出，则证明所有数组都包含该元素，保存の
+    _.intersection = function (array) {
+        var result = [];
+        var argsLength = arguments.length;
+
+        // 遍历第一个数组的元素
+        for (var i = 0, length = getLength(array); i < length; i++) {
+            var item = array[i];
+
+            // 如果 result[] 中已经有 item 元素了，continue
+            // 即 array 中出现了相同的元素
+            // 返回的 result[] 其实是个 "集合"（是去重的）
+            if (_.contains(result, item)) continue;
+
+            // 判断其他参数数组中是否都有item这个元素
+            for (var j = 1; j < argsLength; j++) {
+                if (!_.contains(arguments[j], item)) break;
+            }
+
+            // 遍历其他参数数组完毕
+            // j === argsLength 说明其他参数都有这个元素
+            // 则将该元素添加到result中
+            if (j === argsLength) result.push(item);
+        }
+
+        return result;
+    };
+
+    // _.difference([1, 2, 3, 4, 5], [5, 2, 10]);
+    // => [1, 3, 4]
+    // ===== //
+    // 剔除 array 数组中在 others 数组中出现的元素
+    _.difference = function (array) {
+        // 将 others 数组展开一层
+        // rest[] 保存展开后的元素组成的数组
+        // strict 参数为 true
+        // 不可以这样用 _.difference([1, 2, 3, 4, 5], [5, 2], 10);
+        // 10 就会取不到
+        var rest = flatten(arguments, true, true, 1);
+
+        return _.filter(array, function (value) {
+            return !_.contains(rest, value);
+        });
+    };
+
+    // _.zip(['moe', 'larry', 'curly'], [30, 40, 50], [true, false, false]);
+    // => [["moe", 30, true], ["larry", 40, false], ["curly", 50, false]]
+    // ===== //
+    // 将多个数组中相同位置的元素归类
+    // 返回一个数组
+    _.zip = function() {
+        return _.unzip(arguments);
+    };
+
+    // _.unzip([["moe", 30, true], ["larry", 40, false], ["curly", 50, false]]);
+    // => [['moe', 'larry', 'curly'], [30, 40, 50], [true, false, false]]
+    // ===== //
+    _.unzip = function (array) {
+        // _.max(array, getLength).length 返回array中最长数组的长度
+        var length = array && _.max(array, getLength).length || 0;
+        var result = Array(length);
+
+        for (var index = 0; index < length; index++) {
+            result[index] = _.pluck(array, index);
+        }
+        return result;
+    };
+
 
 
 
