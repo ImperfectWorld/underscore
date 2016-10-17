@@ -1076,6 +1076,154 @@
         return result;
     };
 
+    // 将数组转化为对象
+    //_.object(['moe', 'larry', 'curly'], [30, 40, 50]);
+    //=> {moe: 30, larry: 40, curly: 50}
+    //_.object([['moe', 30], ['larry', 40], ['curly', 50]]);
+    //=> {moe: 30, larry: 40, curly: 50}
+    _.object = function (list, values) {
+        var result = {};
+        for (var i = 0, length = getLength(list); i < length; i++) {
+            if (values) {
+                return result[list[i]] = values[i];
+            } else {
+                result[list[i][0]] = list[i][1];
+            }
+        }
+        return result;
+    };
+
+    // Generator function to create the indexOf and lastIndexOf functions
+    // _.indexOf = createIndexFinder(1, _.findIndex, _.sortedIndex);
+    // _.lastIndexOf = createIndexFinder(-1, _.findLastIndex);
+    function createIndexFinder(dir, predicateFind, sortedIndex) {
+        // API调用形式
+        // _.indexOf = createIndexFinder(1, _.findIndex, _.sortedIndex)
+        // _.indexOf = createIndexFinder(-1, _.findLastIndex)
+        return function(array, item, idx) {
+            var i = 0, length = getLength(array);
+
+            // 如果 idx 为 Number 类型
+            // 则规定查找位置的起始点
+            // 那么第三个参数不是 [isSorted]
+            // 所以不能用二分查找优化了
+            // 只能遍历查找
+            if (typeof idx == 'number') {
+                if (dir > 0) { // 正向查找
+                    // 重置查找的起始位置
+                    i = idx >= 0 ? idx : Math.max(idx + length, i);
+                } else { // 反向查找
+                    // 如果是反向查找，重置 length 属性值
+                    length = idx >= 0 ? Math.min(idx + 1, length) : idx + length + 1;
+                }
+            } else if (sortedIndex && idx && length) {
+                // 能用二分查找加速的条件
+                // 有序 & idx !== 0 && length !== 0
+
+                // 用 _.sortIndex 找到有序数组中 item 正好插入的位置
+                idx = sortedIndex(array, item);
+
+                // 如果正好插入的位置的值和 item 刚好相等
+                // 说明该位置就是 item 第一次出现的位置
+                // 返回下标
+                // 否则即是没找到，返回 -1
+                return array[idx] === item ? idx : -1;
+            }
+
+            // 特判，如果要查找的元素是 NaN 类型
+            // 如果 item !== item
+            // 那么 item => NaN
+            if (item !== item) {
+                idx = predicateFind(slice.call(array, i, length), _.isNaN);
+                return idx >= 0 ? idx + i : -1;
+            }
+
+            // O(n) 遍历数组
+            // 寻找和 item 相同的元素
+            // 特判排除了 item 为 NaN 的情况
+            // 可以放心地用 `===` 来判断是否相等了
+            for (idx = dir > 0 ? i : length - 1; idx >= 0 && idx < length; idx += dir) {
+                if (array[idx] === item) return idx;
+            }
+
+            return -1;
+        };
+
+    };
+
+    // _.indexOf(array, value, [isSorted])
+    // 找到数组 array 中 value 第一次出现的位置
+    // 并返回其下标值
+    // 如果数组有序，则第三个参数可以传入 true
+    // 这样算法效率会更高（二分查找）
+    // [isSorted] 参数表示数组是否有序
+    // 同时第三个参数也可以表示 [fromIndex] （见下面的 _.lastIndexOf）
+    _.indexOf = createIndexFinder(1, _.findIndex, _.sortedIndex);
+
+    // 和 _indexOf 相似
+    // 反序查找
+    // _.lastIndexOf(array, value, [fromIndex])
+    // [fromIndex] 参数表示从倒数第几个开始往前找
+    _.lastIndexOf = createIndexFinder(-1, _.findLastIndex);
+
+
+    // ===== //
+    // _.sortedIndex([10, 20, 30, 40, 50], 35);
+    // => 3
+    // ===== //
+    // var stooges = [{name: 'moe', age: 40}, {name: 'curly', age: 60}];
+    // _.sortedIndex(stooges, {name: 'larry', age: 50}, 'age');
+    // => 1
+    // ===== //
+    // 二分查找
+    // 将一个元素插入已排序的数组
+    // 返回该插入的位置下标
+    // _.sortedIndex(list, value, [iteratee], [context])
+    _.sortedIndex = function (array, obj, iteratee, context) {
+        // 注意 cb 方法
+        // iteratee 为空 || 为 String 类型（key 值）时会返回不同方法
+        iteratee = cb(iteratee, context, 1);
+
+        // 经过迭代函数计算的值
+        // 可打印 iteratee 出来看看
+        var value = iteratee(obj);
+        var low = 0, high = getLength(array);
+
+        // 二分查找
+        while (low < high) {
+            var mid = Math.floor((low + high) / 2);
+            if (iteratee(array[mid]) < value)
+                low = mid + 1;
+            else
+                high = mid;
+        }
+
+        return low;
+    };
+
+    // 返回某一个范围内的数组成的数组
+    _.range = function (start, stop, step) {
+        if (stop == null) {
+            stop = start || 0;
+            strat = 0;
+        }
+
+        step = step || 1;
+
+        // 返回数组的长度
+        var length = Math.max(Math.ceil((stop - start) / step), 0);
+
+        // 返回的数组
+        var range = Array(length);
+
+        for (var idx = 0; idx < length; idx++, start += step) {
+            range[idx] = start;
+        }
+
+        return range;
+    };
+
+
 
 
 
