@@ -239,7 +239,11 @@
         };
     }
 
-
+    // 与 ES5 中 Array.prototype.reduce 使用方法类似
+    // _.reduce(list, iteratee, [memo], [context])
+    // _.reduce 方法最多可传入 4 个参数
+    // memo 为初始值，可选
+    // context 为指定 iteratee 中 this 指向，可选
     _.reduce = _.foldl = _.inject = createReduce(1);
     _.reduceRight = _.foldr = createReduce(-1);
 
@@ -278,6 +282,16 @@
         return results;
     };
 
+    // 根据指定的键值对
+    // 选择对象
+    _.where = function (obj, attrs) {
+        return _.fliter(obj, _.matcher(attrs));
+    };
+
+    // 寻找第一个有指定 key-value 键值对的对象
+    _.findWhere = function (obj, attrs) {
+        return _.find(obj, _.matcher(attrs));
+    };
 
     // 寻找数组或者对象中所有不满足条件的元素
     // 并以数组方式返回
@@ -286,6 +300,154 @@
         return _.filter(obj, _.negate(cb(predicate))， context);
     };
 
+    // 与 ES5 中的 Array.prototype.every 方法类似
+    // 判断数组中的每个元素或者对象中每个 value 值是否都满足 predicate 函数中的判断条件
+    // 如果是，则返回 ture；否则返回 false（有一个不满足就返回 false）
+    // _.every(list, [predicate], [context])
+    _.every = _.all = function (obj, predicate, context) {
+        // 根据 this 指向，返回相应 predicate 函数
+        predicate = cb(predicate, context);
+
+        var keys = !isArrayLike(obj) && _.keys(obj),
+            length = (keys || obj).length;
+
+        for (var index = 0; index < length; index++) {
+            var currentKey = keys ? keys[index] : index;
+
+            // 如果有一个不满足，则返回flash
+            if (!predicate(obj[currentKey], currentKey, obj)
+                return false;
+        }
+        return true;
+    };
+
+
+    // 与 ES5 中 Array.prototype.some 方法类似
+    // 判断数组或者对象中是否有一个元素（value 值 for object）满足 predicate 函数中的条件
+    // 如果是则返回 true；否则返回 false
+    _.some = _.any =  function (obj, predicate, context) {
+        // 根据context 返回predicate函数
+        predicate = cb(predicate, context);
+        // 如果传参是对象，则返回该对象的keys数组
+        vay keys = !isArrayLike(obj) && _.keys(obj),
+            length = (keys || obj).length;
+        for (var index = 0; index < length; index++) {
+            var currentKey = keys ? keys[index] : index;
+            if (predicate(obj[currentKey], currentKey, obj)) return true;
+        }
+        return false;
+    };
+
+    // 判断数组或者对象中（value 值）是否有指定元素
+    // 如果是 object，则忽略 key 值，只需要查找 value 值即可
+    // 即该 obj 中是否有指定的 value 值
+    // 返回布尔值
+    _.contains = _.includes = _.include = function (obj, item, fromIndex, guard) {
+        // 如果是对象，返回values组成的数组
+        if (!isArrayLike(obj)) obj = _.values(obj);
+
+        // fromIndex表示开始检索的位置
+        // 如果没有指定该参数，则默认从头找起
+        if (typeof fromIndex != 'number' || guard) fromIndex = 0;
+
+        // _.indexOf 是数组扩展方法
+        // 数组中寻找某一元素
+        return _.indexOf(obj, item, fromIndex) >= 0;
+    };
+
+    // 数组或者对象中的每个元素都调用 method 方法
+    // 返回调用后的结果（数组或者关联数组）
+    // method 参数后的参数会被当做参数传入 method 方法中
+    // _.invoke(list, methodName, *arguments)
+    _.invoke = function (obj, method) {
+        // *arguments 参数
+        var args = slice.call(arguments, 2);
+
+        // 判断method是不是函数
+        var isFunc = _.isFunction(method);
+
+        // 用map方法对数组或者对象每个元素调用方法
+        return _.map(obj, function (value) {
+            var func = isFunc ? method : value[method];
+            return func == null ? func : func.apply(value, args);
+        });
+    };
+    // 一个数组，元素都是对象
+    // 根据指定的 key 值
+    // 返回一个数组，元素都是指定 key 值的 value 值
+    /*
+     var property = function(key) {
+     return function(obj) {
+     return obj == null ? void 0 : obj[key];
+     };
+     };
+     */
+    // _.pluck(list, propertyName)
+    _.pluck = function (obj, key) {
+        return _.map(obj, _.prototype(key));
+    };
+
+    // 寻找数组中的最大元素
+    // 或者对象中的最大 value 值
+    // 如果有 iteratee 参数，则求每个元素经过该函数迭代后的最值
+    // _.max(list, [iteratee], [context])
+    _.max = function (obj, iteratee, context) {
+        var result = -Infinity, lastComputed = -Infinity,
+            value, computed;
+
+        //单纯的寻找最值
+        if (iteratee == null && obj != null) {
+            obj = isArrayLike(obj) ? obj : _.values(obj);
+
+            for (var i = 0, length = obj.length; i < length; i++) {
+                value = obj[i];
+                if (value > result) {
+                    result = value;
+                }
+            }
+        } else {
+            // 寻找经过迭代后的最值
+            iteratee = cb(iteratee, context);
+
+            // result保存结果元素
+            // lastComputed 保存计算过程中出现的最值
+            _.each(obj, function (value, index, list) {
+                // 经过迭代函数后的值
+                computed = iteratee(value, index, list);
+                // && 优先级高于 ||
+                if (computed > lastComputed || computed === -Infinity && result === -Infinity) {
+                    result = value;
+                    lastComputed = computed;
+                }
+            });
+        }
+        return result;
+    };
+
+    // 寻找最小的元素
+    // 类似 _.max
+    // _.min(list, [iteratee], [context])
+    _.min = function (obj, iteratee, context) {
+        var result = Infinity, lastComputed = Infinity,
+            value, computed;
+        if (iteratee == null && obj != null) {
+            obj = isArrayLike(obj) ? obj : _.values(obj);
+            for (var i = 0, length = obj.length; i < length; i++) {
+                value = obj[i];
+                result = value < result ? value : result;
+            }
+        } else {
+            iteratee = cb(iteratee, context);
+            _.each(obj, function (value, index, list) {
+                computed = iteratee(value, index, list);
+                if (computed < lastComputed || computed === Infinity && result === Infinity) {
+                    result = value;
+                    lastComputed = computed;
+                }
+            });
+        }
+        return result;
+    };
 
 
 
